@@ -2,6 +2,7 @@ from fastapi import FastAPI, HTTPException, Query, Depends, UploadFile, File, Fo
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
+from fastapi.responses import HTMLResponse
 from pydantic import BaseModel
 from typing import List, Optional
 from sqlalchemy import create_engine, Column, Integer, String, Text
@@ -24,6 +25,10 @@ app.add_middleware(
     allow_origins=["*"], allow_credentials=True,
     allow_methods=["*"], allow_headers=["*"]
 )
+
+@app.get("/", response_class=HTMLResponse)
+def home():
+    return "<h1>🍽️ Filipino Recipes API is live!</h1><p>Try <a href='/recipes?app-id=demo&app_key=demo123'>/recipes</a></p>"
 
 # Static images
 os.makedirs("images", exist_ok=True)
