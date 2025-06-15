@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Filipino Recipes</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <h1>Filipino Food Recipes</h1>
+
+  <div class="filters">
+    <input type="text" id="search" placeholder="Search recipes..." />
+    <select id="sort">
+      <option value="id">Sort by ID</option>
+      <option value="title">Sort by Title</option>
+      <option value="prep_time">Sort by Prep Time</option>
+      <option value="calories">Sort by Calories</option>
+    </select>
+    <select id="tag-filter">
+      <option value="">All Tags</option>
+      <option value="vegan">Vegan</option>
+      <option value="easy">Easy</option>
+      <option value="spicy">Spicy</option>
+    </select>
+    <input type="number" id="max-time" placeholder="Max prep time (min)" />
+    <div id="category-filters"></div>
+  </div>
+
+  <button id="new-recipe-btn">➕ Add New Recipe</button>
+
+  <div id="modal-overlay">
+    <div id="recipe-modal">
+      <form id="recipe-form">
+        <h2>Add / Edit Recipe</h2>
+
+        <div class="form-grid">
+          <input type="number" id="id" placeholder="ID" required />
+          <input type="text" id="title" placeholder="Title" maxlength="60" required />
+        </div>
+
+        <select id="form-category" required>
+          <option value="">Select Category</option>
+        </select>
+
+        <textarea id="description" placeholder="Description" maxlength="500" required></textarea>
+
+        <input type="number" id="prep-time" placeholder="Prep time (min)" required />
+        <input type="number" id="calories" placeholder="Calories" required />
+        <input type="text" id="tags" placeholder="Tags (comma separated)" />
+
+        <label>Image:</label>
+        <div id="drop-zone">
+          <p>Drop image here or click to select</p>
+          <input type="file" id="image" accept="image/*" style="display:none;" />
+          <img id="preview" src="" alt="Preview" style="max-width:150px;display:none;" />
+        </div>
+
+        <div id="ingredients-container">
+          <label>Ingredients (drag to reorder):</label>
+          <ul id="ingredients-list" class="sortable"></ul>
+          <button type="button" onclick="addIngredient()">Add Ingredient</button>
+        </div>
+
+        <div id="steps-container">
+          <label>Steps (drag to reorder):</label>
+          <ol id="steps-list" class="sortable"></ol>
+          <button type="button" onclick="addStep()">Add Step</button>
+        </div>
+
+        <button type="submit">Submit Recipe</button>
+        <button type="button" onclick="cancelEdit()" style="background-color: #dc3545; color: white;">Cancel</button>
+
+        <div id="form-errors" style="color: red; margin-top: 10px;"></div>
+      </form>
+    </div>
+  </div>
+
+  <div id="admin-login">
+    <h3>Admin Login</h3>
+    <form id="login-form">
+      <input type="text" id="admin-user" name="username" placeholder="Username" required />
+      <input type="password" id="admin-pass" name="password" placeholder="Password" required />
+      <button type="submit">Login</button>
+    </form>
+  </div>
+
+  <div id="admin-panel" style="display: none;">
+    <h3>Admin: Manage Categories</h3>
+    <form id="category-form">
+      <input type="text" id="new-category" placeholder="New category name" required />
+      <button type="submit">Add Category</button>
+    </form>
+    <ul id="category-list"></ul>
+  </div>
+
+  <div id="toast-container"></div>
+  <div id="loader" class="loader">Loading...</div>
+  <div id="recipes"></div>
+  <div id="pagination"></div>
+
+  <script>
+    window.ACCESS_POINT = "http://localhost:8000/recipes";
+    const APP_ID = "demo";
+    const API_KEY = "demo123";
+    const TYPE = "public";
+  </script>
+
+  <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
+  <script src="script.js"></script>
+</body>
+</html>
