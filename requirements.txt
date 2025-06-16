@@ -3,4 +3,5 @@ uvicorn
 sqlalchemy
 python-dotenv
 python-multipart
+python-jose[cryptography]
 aiofiles
