@@ -1,14 +1,7 @@
-document.addEventListener("DOMContentLoaded", () => {
-  const panel = document.getElementById("admin-panel");
-  const token = localStorage.getItem("token");
-  if (!token && panel) panel.style.display = "none";
-});
-
-
 let token = localStorage.getItem("token") || "";
 let currentPage = 1;
 let pageSize = 5;
-
+let undoStack = [];
 
 function showToast(msg, type = "success") {
   const toast = document.createElement("div");
@@ -58,8 +51,6 @@ function buildQueryParams() {
 
   filters.push(`from=${(currentPage - 1) * pageSize}`);
   filters.push(`size=${pageSize}`);
-  filters.push(`app-id=${APP_ID}`);
-  filters.push(`app_key=${API_KEY}`);
   return filters.join("&");
 }
 
@@ -82,21 +73,15 @@ function renderPagination(from, to, count) {
 
 async function fetchRecipes() {
   toggleLoader(true);
-  const res = await fetch(`${ACCESS_POINT}?${buildQueryParams()}`);
+  const res = await fetch(`http://localhost:8000/recipes?${buildQueryParams()}`);
   const data = await res.json();
   const container = document.getElementById("recipes");
 
-  if (data.hits.length === 0) {
-    container.innerHTML = `<p>No recipes found. Try changing filters.</p>`;
+  if (!data.hits || data.hits.length === 0) {
+    container.innerHTML = `<p>No recipes found.</p>`;
     toggleLoader(false);
     return;
   }
-
-  const sort = document.getElementById("sort").value;
-  if (sort === "title") data.hits.sort((a, b) => a.title.localeCompare(b.title));
-  else if (sort === "prep_time") data.hits.sort((a, b) => a.prep_time - b.prep_time);
-  else if (sort === "calories") data.hits.sort((a, b) => a.calories - b.calories);
-  else data.hits.sort((a, b) => a.id - b.id);
 
   container.innerHTML = data.hits.map(r => `
     <div class="recipe">
@@ -106,16 +91,46 @@ async function fetchRecipes() {
       <p>${r.description}</p>
       <p><strong>Prep Time:</strong> ${r.prep_time} min</p>
       <p><strong>Calories:</strong> ${r.calories}</p>
-      <p><strong>Tags:</strong> ${r.tags.join(", ")}</p>
       <ul>${r.ingredients.map(i => `<li>${i}</li>`).join("")}</ul>
       <ol>${r.steps.map(s => `<li>${s}</li>`).join("")}</ol>
       ${token ? `<button onclick="editRecipe(${r.id})">✏</button>
-                 <button onclick="deleteRecipe(${r.id})">🗑</button>` : ""}
+               <button onclick="deleteRecipe(${r.id})">🗑</button>` : ""}
     </div>
   `).join("");
 
   renderPagination(data.from, data.to, data.count);
   toggleLoader(false);
+}
+
+async function deleteRecipe(id) {
+  if (!confirm("Delete this recipe?")) return;
+  const res = await fetch(`http://localhost:8000/recipes/${id}`);
+  const r = await res.json();
+  undoStack.push(r);
+
+  await fetch(`http://localhost:8000/recipes/${id}`, {
+    method: "DELETE",
+    headers: { Authorization: `Bearer ${token}` }
+  });
+
+  showToast(`Deleted: ${r.title}`);
+  fetchRecipes();
+}
+
+async function undoDelete() {
+  const r = undoStack.pop();
+  if (!r) return;
+
+  await fetch("http://localhost:8000/recipes", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      ...(token && { Authorization: `Bearer ${token}` })
+    },
+    body: JSON.stringify(r)
+  });
+  showToast(`Restored: ${r.title}`);
+  fetchRecipes();
 }
 
 document.getElementById("category-form").onsubmit = async e => {

@@ -1,45 +1,36 @@
-from fastapi import FastAPI, HTTPException, Query, Depends, UploadFile, File, Form
+from fastapi import FastAPI, HTTPException, Depends, File, UploadFile, Query, Form
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse
 from fastapi.responses import HTMLResponse
 from pydantic import BaseModel
 from typing import List, Optional
-from sqlalchemy import create_engine, Column, Integer, String, Text
+from sqlalchemy import Column, Integer, String, Text, create_engine
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker, Session
+from jose import jwt, JWTError
 from dotenv import load_dotenv
 import os, shutil
+from datetime import datetime, timedelta
 
-# Load .env
+# Load environment variables for APP_ID and API_KEY
 load_dotenv()
 VALID_APP_ID = os.getenv("APP_ID", "demo")
 VALID_API_KEY = os.getenv("API_KEY", "demo123")
 
-# Setup
-app = FastAPI(title="Filipino Recipes API", version="1.0")
+# App and CORS setup
+app = FastAPI(title="Unified Filipino Recipes API", version="1.0")
+app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
 
-# CORS for frontend
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"], allow_credentials=True,
-    allow_methods=["*"], allow_headers=["*"]
-)
-
-@app.get("/", response_class=HTMLResponse)
-def home():
-    return "<h1>🍽️ Filipino Recipes API is live!</h1><p>Try <a href='/recipes?app-id=demo&app_key=demo123'>/recipes</a></p>"
-
-# Static images
+# Static file directory
 os.makedirs("images", exist_ok=True)
 app.mount("/images", StaticFiles(directory="images"), name="images")
 
-# DB setup
+# Database setup
 Base = declarative_base()
 engine = create_engine("sqlite:///recipes.db", connect_args={"check_same_thread": False})
 SessionLocal = sessionmaker(bind=engine)
 
-# Models
+# Database models (richest one from main.py)
 class RecipeDB(Base):
     __tablename__ = "recipes"
     id = Column(Integer, primary_key=True, index=True)
@@ -63,7 +54,19 @@ class CategoryDB(Base):
 
 Base.metadata.create_all(bind=engine)
 
-# Schemas
+# Dependency to get DB session
+def get_db():
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
+
+# Auth settings
+SECRET_KEY = "supersecret"
+ALGORITHM = "HS256"
+
+# Pydantic models
 class RecipeIn(BaseModel):
     id: int
     title: str
@@ -89,15 +92,7 @@ class PaginatedResponse(BaseModel):
     count: int
     hits: List[RecipeOut]
 
-# DB Dependency
-def get_db():
-    db = SessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
-
-# Auth
+# Simple credential validation (like main.py)
 def validate_app_credentials(
     app_id: str = Query(..., alias="app-id"),
     app_key: str = Query(..., alias="app_key")
@@ -105,7 +100,12 @@ def validate_app_credentials(
     if app_id != VALID_APP_ID or app_key != VALID_API_KEY:
         raise HTTPException(status_code=403, detail="Invalid app credentials")
 
-# Routes
+# Homepage route
+@app.get("/", response_class=HTMLResponse)
+def home():
+    return "<h1>🍽️ Unified Filipino Recipes API is live!</h1>"
+
+# Recipe routes
 @app.get("/recipes", response_model=PaginatedResponse)
 def list_recipes(
     app_id: str = Query(..., alias="app-id"),
@@ -217,6 +217,7 @@ def delete_recipe(id: int, db: Session = Depends(get_db)):
     db.commit()
     return {"message": "Deleted"}
 
+# Image upload
 @app.post("/upload-image")
 async def upload_image(file: UploadFile = File(...)):
     filename = file.filename
@@ -225,12 +226,9 @@ async def upload_image(file: UploadFile = File(...)):
         shutil.copyfileobj(file.file, f)
     return {"filename": filename}
 
+# Category routes
 @app.get("/categories", response_model=List[str])
-def get_categories(
-    app_id: str = Query(..., alias="app-id"),
-    app_key: str = Query(..., alias="app_key"),
-    db: Session = Depends(get_db)
-):
+def get_categories(app_id: str = Query(..., alias="app-id"), app_key: str = Query(..., alias="app_key"), db: Session = Depends(get_db)):
     validate_app_credentials(app_id, app_key)
     return [c.name for c in db.query(CategoryDB).all()]
 
@@ -251,9 +249,9 @@ def delete_category(name: str, db: Session = Depends(get_db)):
     db.commit()
     return {"message": "Deleted"}
 
-# Simple admin login mock
+# Admin token login (simple mock)
 @app.post("/token")
 def login(username: str = Form(...), password: str = Form(...)):
-    if username == "admin" and password == "admin":
+    if username == "admin" and password == "password":
         return {"access_token": "admin-token"}
     raise HTTPException(status_code=403, detail="Invalid login")

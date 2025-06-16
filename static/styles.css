@@ -1,13 +1,18 @@
+/* Filipino Recipes App - Main Styles */
+/* This file contains all the styling for the recipe application */
+
+/* ===== BASIC LAYOUT ===== */
 body {
   font-family: Arial, sans-serif;
   padding: 20px;
-  background: #fffaf0;
+  background: #fffaf0; /* Light cream background */
 }
 
+/* ===== SEARCH AND FILTER SECTION ===== */
 .filters {
   display: flex;
   gap: 15px;
-  flex-wrap: wrap;
+  flex-wrap: wrap; /* Allows filters to wrap on smaller screens */
   margin-bottom: 20px;
 }
 
@@ -17,28 +22,50 @@ body {
   gap: 10px;
 }
 
+/* ===== FORM STYLING ===== */
 form {
   margin-bottom: 30px;
   background: #fff;
   padding: 15px;
   border-radius: 8px;
-  box-shadow: 0 0 5px #ccc;
+  box-shadow: 0 0 5px #ccc; /* Subtle shadow for depth */
 }
 
+/* Input fields, dropdowns, and text areas */
 input, select, textarea {
   width: 100%;
   margin-bottom: 10px;
   padding: 8px;
   border: 1px solid #ccc;
   border-radius: 4px;
-  font-size: 14px;
+  font-size: 14px; /* Readable font size */
 }
 
 textarea {
-  resize: vertical;
+  resize: vertical; /* Only allow vertical resizing */
   min-height: 80px;
 }
 
+/* Two-column form layout for ID and Title */
+.form-grid {
+  display: flex;
+  gap: 10px;
+}
+
+/* Error display styling */
+#form-errors {
+  color: red;
+  margin-top: 10px;
+}
+
+#form-errors ul {
+  margin: 0;
+  padding-left: 18px;
+  color: red;
+  font-size: 14px;
+}
+
+/* ===== SORTABLE LISTS (Ingredients & Steps) ===== */
 ul.sortable, ol.sortable {
   list-style: none;
   padding-left: 0;
@@ -48,32 +75,126 @@ ul.sortable, ol.sortable {
   padding: 6px;
   background: #eee;
   margin-bottom: 5px;
-  cursor: grab;
+  cursor: grab; /* Shows drag cursor */
   display: flex;
   justify-content: space-between;
   align-items: center;
 }
 
+/* ===== BUTTONS ===== */
 button {
   padding: 8px 12px;
   margin-top: 5px;
   cursor: pointer;
   border: none;
   border-radius: 4px;
-  background-color: #3d405b;
+  background-color: #3d405b; /* Dark blue-gray */
   color: #fff;
-  transition: background-color 0.2s ease;
+  transition: background-color 0.2s ease; /* Smooth hover effect */
 }
 
 button:hover {
-  background-color: #5a5d7a;
+  background-color: #5a5d7a; /* Lighter on hover */
 }
 
+/* Special icon buttons (edit, delete, etc.) */
+.icon-button {
+  background: none;
+  border: none;
+  font-size: 18px;
+  cursor: pointer;
+  margin-top: 30px;
+  display: block;
+  margin-left: auto;
+  margin-right: auto;
+  color: #3d405b;
+  transition: color 0.2s ease;
+}
+
+.icon-button:hover {
+  color: #000;
+}
+
+/* ===== MODAL POPUP ===== */
+#modal-overlay {
+  position: fixed;
+  top: 0; 
+  left: 0; 
+  right: 0; 
+  bottom: 0;
+  background-color: rgba(0,0,0,0.5); /* Semi-transparent backdrop */
+  display: none;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000; /* Ensures modal appears above everything */
+}
+
+#modal-overlay.active {
+  display: flex;
+}
+
+#recipe-modal {
+  background: white;
+  padding: 20px;
+  border-radius: 8px;
+  max-width: 600px;
+  width: 100%;
+  max-height: 90vh; /* 90% of screen height */
+  overflow-y: auto; /* Scroll if content is too tall */
+  box-shadow: 0 0 10px rgba(0,0,0,0.2);
+  animation: fadeIn 0.3s ease-out;
+}
+
+@keyframes fadeIn {
+  from { 
+    opacity: 0; 
+    transform: translateY(-20px); 
+  }
+  to { 
+    opacity: 1; 
+    transform: translateY(0); 
+  }
+}
+
+/* ===== IMAGE UPLOAD AREA ===== */
+#drop-zone {
+  border: 2px dashed #ccc;
+  padding: 15px;
+  text-align: center;
+  cursor: pointer;
+  margin-bottom: 10px;
+  border-radius: 6px;
+  background-color: #fafafa;
+  transition: background-color 0.2s ease;
+}
+
+#drop-zone.dragover {
+  border-color: #3d405b; /* Highlight when dragging file over */
+  background-color: #f0f0f0;
+}
+
+/* ===== RECIPE DISPLAY CARDS ===== */
+.recipe {
+  background: #fff;
+  padding: 15px;
+  margin-bottom: 20px;
+  border-radius: 8px;
+  box-shadow: 0 0 5px #ccc;
+}
+
+.recipe img {
+  max-width: 100%;
+  max-height: 200px;
+  margin: 10px 0;
+  border-radius: 6px;
+}
+
+/* ===== TOAST NOTIFICATIONS ===== */
 #toast-container {
   position: fixed;
   top: 10px;
   right: 10px;
-  z-index: 9999;
+  z-index: 9999; /* Above everything else */
 }
 
 .toast {
@@ -86,14 +207,26 @@ button:hover {
   animation: slideIn 0.3s ease-out;
 }
 
-.toast.success { background-color: #28a745; }
-.toast.error { background-color: #dc3545; }
-
-@keyframes slideIn {
-  from { opacity: 0; transform: translateY(-10px); }
-  to { opacity: 1; transform: translateY(0); }
+.toast.success { 
+  background-color: #28a745; /* Green for success */
 }
 
+.toast.error { 
+  background-color: #dc3545; /* Red for errors */
+}
+
+@keyframes slideIn {
+  from { 
+    opacity: 0; 
+    transform: translateY(-10px); 
+  }
+  to { 
+    opacity: 1; 
+    transform: translateY(0); 
+  }
+}
+
+/* ===== PAGINATION ===== */
 #pagination {
   display: flex;
   justify-content: center;
@@ -115,6 +248,7 @@ button:hover {
   font-weight: bold;
 }
 
+/* ===== LOADING INDICATOR ===== */
 .loader {
   display: none;
   text-align: center;
@@ -122,101 +256,11 @@ button:hover {
   margin: 20px auto;
 }
 
+/* ===== ADMIN PANEL ===== */
 #admin-panel {
   background: #fff;
   padding: 15px;
   border-radius: 8px;
   box-shadow: 0 0 5px #ccc;
   margin-top: 30px;
-}
-
-#modal-overlay {
-  position: fixed;
-  top: 0; left: 0; right: 0; bottom: 0;
-  background-color: rgba(0,0,0,0.5);
-  display: none;
-  justify-content: center;
-  align-items: center;
-  z-index: 1000;
-}
-
-#modal-overlay.active {
-  display: flex;
-}
-
-#recipe-modal {
-  background: white;
-  padding: 20px;
-  border-radius: 8px;
-  max-width: 600px;
-  width: 100%;
-  max-height: 90vh;
-  overflow-y: auto;
-  box-shadow: 0 0 10px rgba(0,0,0,0.2);
-  animation: fadeIn 0.3s ease-out;
-}
-
-@keyframes fadeIn {
-  from { opacity: 0; transform: translateY(-20px); }
-  to { opacity: 1; transform: translateY(0); }
-}
-
-#drop-zone {
-  border: 2px dashed #ccc;
-  padding: 15px;
-  text-align: center;
-  cursor: pointer;
-  margin-bottom: 10px;
-  border-radius: 6px;
-  background-color: #fafafa;
-  transition: background-color 0.2s ease;
-}
-
-#drop-zone.dragover {
-  border-color: #3d405b;
-  background-color: #f0f0f0;
-}
-
-.recipe {
-  background: #fff;
-  padding: 15px;
-  margin-bottom: 20px;
-  border-radius: 8px;
-  box-shadow: 0 0 5px #ccc;
-}
-
-.recipe img {
-  max-width: 100%;
-  max-height: 200px;
-  margin: 10px 0;
-  border-radius: 6px;
-}
-
-.form-grid {
-  display: flex;
-  gap: 10px;
-}
-
-.icon-button {
-  background: none;
-  border: none;
-  font-size: 18px;
-  cursor: pointer;
-  margin-top: 30px;
-  display: block;
-  margin-left: auto;
-  margin-right: auto;
-  color: #3d405b;
-  transition: color 0.2s ease;
-}
-
-.icon-button:hover {
-  color: #000;
-}
-
-#form-errors ul {
-  margin: 0;
-  padding-left: 18px;
-  color: red;
-  font-size: 14px;
 }
