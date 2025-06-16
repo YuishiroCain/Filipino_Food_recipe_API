@@ -17,12 +17,14 @@
       <option value="prep_time">Sort by Prep Time</option>
       <option value="calories">Sort by Calories</option>
     </select>
-    <select id="tag-filter">
-      <option value="">All Tags</option>
-      <option value="vegan">Vegan</option>
-      <option value="easy">Easy</option>
-      <option value="spicy">Spicy</option>
-    </select>
+
+    <!-- ✅ Updated tag filter section -->
+    <div id="tag-filter-container"></div>
+    <div style="margin-top: 8px;">
+      <button type="button" onclick="addTagFilterRow()">+ Add Tag Filter</button>
+      <button type="button" onclick="clearAllFilters()" style="margin-left: 6px;">🧹 Clear All Filters</button>
+    </div>
+
     <input type="number" id="max-time" placeholder="Max prep time (min)" />
     <div id="category-filters"></div>
   </div>
@@ -48,7 +50,43 @@
 
         <input type="number" id="prep-time" placeholder="Prep time (min)" required />
         <input type="number" id="calories" placeholder="Calories" required />
-        <input type="text" id="tags" placeholder="Tags (comma separated)" />
+
+        <!-- ✅ Structured tag input fields -->
+        <div id="tag-sections">
+          <h3>Tags by Category</h3>
+          <div class="tag-category">
+            <label>Cooking time:</label>
+            <input type="text" data-tag-category="Cooking time" placeholder="e.g. 30min, 1hr" />
+          </div>
+          <div class="tag-category">
+            <label>Ingredients:</label>
+            <input type="text" data-tag-category="Ingredients" placeholder="e.g. chicken, garlic" />
+          </div>
+          <div class="tag-category">
+            <label>Calories:</label>
+            <input type="text" data-tag-category="Calories" placeholder="e.g. low-calorie, 500kcal" />
+          </div>
+          <div class="tag-category">
+            <label>Diet type:</label>
+            <input type="text" data-tag-category="Diet type" placeholder="e.g. vegan, keto" />
+          </div>
+          <div class="tag-category">
+            <label>Health & safety:</label>
+            <input type="text" data-tag-category="Health & safety" placeholder="e.g. gluten-free, allergy-safe" />
+          </div>
+          <div class="tag-category">
+            <label>Meal type:</label>
+            <input type="text" data-tag-category="Meal type" placeholder="e.g. breakfast, dinner" />
+          </div>
+          <div class="tag-category">
+            <label>Dish type:</label>
+            <input type="text" data-tag-category="Dish type" placeholder="e.g. soup, salad" />
+          </div>
+          <div class="tag-category">
+            <label>Cuisine type:</label>
+            <input type="text" data-tag-category="Cuisine type" placeholder="e.g. Filipino, Thai" />
+          </div>
+        </div>
 
         <label>Image:</label>
         <div id="drop-zone">

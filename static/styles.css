@@ -248,6 +248,21 @@ button:hover {
   font-weight: bold;
 }
 
+.tag {
+  display: inline-block;
+  background: #eee;
+  color: #333;
+  padding: 2px 6px;
+  margin: 2px;
+  border-radius: 3px;
+  font-size: 0.85em;
+}
+
+.tag.active {
+  background: #007bff;
+  color: white;
+}
+
 /* ===== LOADING INDICATOR ===== */
 .loader {
   display: none;

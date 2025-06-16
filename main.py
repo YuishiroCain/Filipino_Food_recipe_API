@@ -3,34 +3,30 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import HTMLResponse
 from pydantic import BaseModel
-from typing import List, Optional
+from typing import List, Optional, Dict
 from sqlalchemy import Column, Integer, String, Text, create_engine
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker, Session
 from jose import jwt, JWTError
 from dotenv import load_dotenv
-import os, shutil
+import os, shutil, json
 from datetime import datetime, timedelta
 
-# Load environment variables for APP_ID and API_KEY
+# Load environment variables
 load_dotenv()
 VALID_APP_ID = os.getenv("APP_ID", "demo")
 VALID_API_KEY = os.getenv("API_KEY", "demo123")
 
-# App and CORS setup
 app = FastAPI(title="Unified Filipino Recipes API", version="1.0")
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
 
-# Static file directory
 os.makedirs("images", exist_ok=True)
 app.mount("/images", StaticFiles(directory="images"), name="images")
 
-# Database setup
 Base = declarative_base()
 engine = create_engine("sqlite:///recipes.db", connect_args={"check_same_thread": False})
 SessionLocal = sessionmaker(bind=engine)
 
-# Database models (richest one from main.py)
 class RecipeDB(Base):
     __tablename__ = "recipes"
     id = Column(Integer, primary_key=True, index=True)
@@ -42,7 +38,7 @@ class RecipeDB(Base):
     steps = Column(Text)
     prep_time = Column(Integer)
     calories = Column(Integer)
-    tags = Column(String)
+    tags = Column(Text)  # JSON-encoded Dict[str, List[str]]
     servings = Column(Integer)
     source = Column(String)
     diet_labels = Column(String)
@@ -54,7 +50,6 @@ class CategoryDB(Base):
 
 Base.metadata.create_all(bind=engine)
 
-# Dependency to get DB session
 def get_db():
     db = SessionLocal()
     try:
@@ -62,11 +57,9 @@ def get_db():
     finally:
         db.close()
 
-# Auth settings
 SECRET_KEY = "supersecret"
 ALGORITHM = "HS256"
 
-# Pydantic models
 class RecipeIn(BaseModel):
     id: int
     title: str
@@ -77,7 +70,7 @@ class RecipeIn(BaseModel):
     steps: List[str]
     prep_time: int
     calories: int
-    tags: List[str]
+    tags: Dict[str, List[str]]
     servings: int
     source: str
     diet_labels: List[str]
@@ -92,7 +85,6 @@ class PaginatedResponse(BaseModel):
     count: int
     hits: List[RecipeOut]
 
-# Simple credential validation (like main.py)
 def validate_app_credentials(
     app_id: str = Query(..., alias="app-id"),
     app_key: str = Query(..., alias="app_key")
@@ -100,12 +92,10 @@ def validate_app_credentials(
     if app_id != VALID_APP_ID or app_key != VALID_API_KEY:
         raise HTTPException(status_code=403, detail="Invalid app credentials")
 
-# Homepage route
 @app.get("/", response_class=HTMLResponse)
 def home():
     return "<h1>🍽️ Unified Filipino Recipes API is live!</h1>"
 
-# Recipe routes
 @app.get("/recipes", response_model=PaginatedResponse)
 def list_recipes(
     app_id: str = Query(..., alias="app-id"),
@@ -126,13 +116,28 @@ def list_recipes(
             RecipeDB.description.ilike(f"%{query}%") |
             RecipeDB.ingredients.ilike(f"%{query}%")
         )
-    if tag:
-        base = base.filter(RecipeDB.tags.ilike(f"%{tag}%"))
-    if max_time is not None:
-        base = base.filter(RecipeDB.prep_time <= max_time)
 
-    total = base.count()
-    recipes = base.offset(from_).limit(size).all()
+    if tag:
+        try:
+            tag_pairs = [t.strip() for t in tag.split(",") if ":" in t]
+            all_recipes = base.all()
+            filtered = []
+
+            for r in all_recipes:
+                tag_dict = json.loads(r.tags) if r.tags else {}
+                if all(
+                    val in tag_dict.get(cat, [])
+                    for cat, val in (pair.split(":", 1) for pair in tag_pairs)
+                ):
+                    filtered.append(r)
+
+            total = len(filtered)
+            recipes = filtered[from_:from_+size]
+        except Exception:
+            raise HTTPException(status_code=400, detail="Invalid tag format. Use 'Category:Value'")
+    else:
+        total = base.count()
+        recipes = base.offset(from_).limit(size).all()
 
     hits = []
     for r in recipes:
@@ -146,7 +151,7 @@ def list_recipes(
             steps=r.steps.split("|") if r.steps else [],
             prep_time=r.prep_time,
             calories=r.calories,
-            tags=r.tags.split(",") if r.tags else [],
+            tags=json.loads(r.tags) if r.tags else {},
             servings=r.servings,
             source=r.source,
             diet_labels=r.diet_labels.split(",") if r.diet_labels else []
@@ -174,7 +179,7 @@ def get_recipe(id: int, db: Session = Depends(get_db)):
         steps=r.steps.split("|") if r.steps else [],
         prep_time=r.prep_time,
         calories=r.calories,
-        tags=r.tags.split(",") if r.tags else [],
+        tags=json.loads(r.tags) if r.tags else {},
         servings=r.servings,
         source=r.source,
         diet_labels=r.diet_labels.split(",") if r.diet_labels else []
@@ -188,7 +193,7 @@ def create_recipe(recipe: RecipeIn, db: Session = Depends(get_db)):
         **recipe.dict(exclude={"ingredients", "steps", "tags", "diet_labels"}),
         ingredients="|".join(recipe.ingredients),
         steps="|".join(recipe.steps),
-        tags=",".join(recipe.tags),
+        tags=json.dumps(recipe.tags),
         diet_labels=",".join(recipe.diet_labels)
     )
     db.add(r)
@@ -201,8 +206,14 @@ def update_recipe(id: int, recipe: RecipeIn, db: Session = Depends(get_db)):
     if not r:
         raise HTTPException(status_code=404)
     for field, value in recipe.dict().items():
-        if field in {"ingredients", "steps", "tags", "diet_labels"}:
-            setattr(r, field, "|".join(value) if field in {"ingredients", "steps"} else ",".join(value))
+        if field == "ingredients":
+            setattr(r, field, "|".join(value))
+        elif field == "steps":
+            setattr(r, field, "|".join(value))
+        elif field == "diet_labels":
+            setattr(r, field, ",".join(value))
+        elif field == "tags":
+            setattr(r, field, json.dumps(value))
         else:
             setattr(r, field, value)
     db.commit()
@@ -217,7 +228,6 @@ def delete_recipe(id: int, db: Session = Depends(get_db)):
     db.commit()
     return {"message": "Deleted"}
 
-# Image upload
 @app.post("/upload-image")
 async def upload_image(file: UploadFile = File(...)):
     filename = file.filename
@@ -226,7 +236,6 @@ async def upload_image(file: UploadFile = File(...)):
         shutil.copyfileobj(file.file, f)
     return {"filename": filename}
 
-# Category routes
 @app.get("/categories", response_model=List[str])
 def get_categories(app_id: str = Query(..., alias="app-id"), app_key: str = Query(..., alias="app_key"), db: Session = Depends(get_db)):
     validate_app_credentials(app_id, app_key)

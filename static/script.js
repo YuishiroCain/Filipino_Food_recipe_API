@@ -42,17 +42,23 @@ function previewImage(file) {
 function buildQueryParams() {
   const filters = [];
   const query = document.getElementById("search").value;
-  const tag = document.getElementById("tag-filter").value;
+  const selectedTags = [];
+    document.querySelectorAll(".filter-tag-row").forEach(row => {
+      const cat = row.querySelector("select").value;
+      const val = row.querySelector("input").value;
+      if (cat && val) selectedTags.push(`${cat}:${val}`);
+      });
   const maxTime = document.getElementById("max-time").value;
 
+  if (selectedTags.length) filters.push(`tag=${encodeURIComponent(selectedTags.join(","))}`);
   if (query) filters.push(`query=${encodeURIComponent(query)}`);
-  if (tag) filters.push(`tag=${encodeURIComponent(tag)}`);
+  if (tagCat && tagVal) filters.push(`tag=${encodeURIComponent(`${tagCat}:${tagVal}`)}`);
   if (maxTime) filters.push(`max_time=${maxTime}`);
 
   filters.push(`from=${(currentPage - 1) * pageSize}`);
   filters.push(`size=${pageSize}`);
   return filters.join("&");
-}
+  }
 
 function renderPagination(from, to, count) {
   const totalPages = Math.ceil(count / pageSize);
@@ -71,6 +77,20 @@ function renderPagination(from, to, count) {
   }
 }
 
+function highlightActiveTags() {
+  const tagSet = new Set();
+  document.querySelectorAll(".filter-tag-row").forEach(row => {
+    const cat = row.querySelector("select").value;
+    const val = row.querySelector("input").value.trim().toLowerCase();
+    if (cat && val) tagSet.add(`${cat}:${val}`);
+  });
+
+  document.querySelectorAll(".tag").forEach(tagEl => {
+    const tagKey = `${tagEl.dataset.cat}:${tagEl.dataset.val}`.toLowerCase();
+    tagEl.classList.toggle("active", tagSet.has(tagKey));
+  });
+}
+
 async function fetchRecipes() {
   toggleLoader(true);
   const res = await fetch(`http://localhost:8000/recipes?${buildQueryParams()}`);
@@ -79,6 +99,7 @@ async function fetchRecipes() {
 
   if (!data.hits || data.hits.length === 0) {
     container.innerHTML = `<p>No recipes found.</p>`;
+    highlightActiveTags();
     toggleLoader(false);
     return;
   }
@@ -93,6 +114,12 @@ async function fetchRecipes() {
       <p><strong>Calories:</strong> ${r.calories}</p>
       <ul>${r.ingredients.map(i => `<li>${i}</li>`).join("")}</ul>
       <ol>${r.steps.map(s => `<li>${s}</li>`).join("")}</ol>
+      <div class="tags">
+        ${(Object.entries(r.tags || {}).flatMap(([cat, vals]) =>
+          vals.map(val => `<span class="tag" data-cat="${cat}" data-val="${val}" onclick="onTagClick(this)">${cat}: ${val}</span>`)
+        )).join("")}
+      </div>
+
       ${token ? `<button onclick="editRecipe(${r.id})">✏</button>
                <button onclick="deleteRecipe(${r.id})">🗑</button>` : ""}
     </div>
@@ -148,7 +175,6 @@ document.getElementById("category-form").onsubmit = async e => {
   const data = await res.json();
   showToast(data.message || "Category added");
 
-  // Reset input and refresh categories
   document.getElementById("new-category").value = "";
   loadCategories();
 };
@@ -164,9 +190,17 @@ document.getElementById("recipe-form").onsubmit = async function (e) {
   const description = document.getElementById("description").value;
   const prep_time = parseInt(document.getElementById("prep-time").value);
   const calories = parseInt(document.getElementById("calories").value);
-  const tags = document.getElementById("tags").value.split(",").map(t => t.trim()).filter(Boolean);
   const ingredients = [...document.querySelectorAll("[name='ingredient']")].map(i => i.value);
   const steps = [...document.querySelectorAll("[name='step']")].map(s => s.value);
+
+  // 🔁 Structured tags
+  const tagInputs = document.querySelectorAll('[data-tag-category]');
+  const tags = {};
+  tagInputs.forEach(input => {
+    const category = input.dataset.tagCategory;
+    const values = input.value.split(",").map(t => t.trim()).filter(Boolean);
+    if (values.length > 0) tags[category] = values;
+  });
 
   if (!title) errors.push("Title is required.");
   if (!description) errors.push("Description is required.");
@@ -240,7 +274,6 @@ async function editRecipe(id) {
   document.getElementById("description").value = r.description;
   document.getElementById("prep-time").value = r.prep_time;
   document.getElementById("calories").value = r.calories;
-  document.getElementById("tags").value = r.tags.join(", ");
   document.getElementById("preview").src = r.image ? `/images/${r.image}` : "";
   document.getElementById("preview").style.display = r.image ? "block" : "none";
 
@@ -248,16 +281,13 @@ async function editRecipe(id) {
   r.ingredients.forEach(addIngredient);
   document.getElementById("steps-list").innerHTML = "";
   r.steps.forEach(addStep);
-}
 
-async function deleteRecipe(id) {
-  if (!confirm("Delete this recipe?")) return;
-  await fetch(`http://localhost:8000/recipes/${id}`, {
-    method: "DELETE",
-    headers: { Authorization: `Bearer ${token}` }
+  // Populate structured tags
+  const tagInputs = document.querySelectorAll('[data-tag-category]');
+  tagInputs.forEach(input => {
+    const cat = input.dataset.tagCategory;
+    input.value = (r.tags[cat] || []).join(", ");
   });
-  showToast("Recipe deleted");
-  fetchRecipes();
 }
 
 async function loadCategories() {
@@ -300,10 +330,13 @@ document.getElementById("search").addEventListener("input", () => {
   setTimeout(fetchRecipes, 300);
 });
 document.getElementById("sort").addEventListener("change", fetchRecipes);
-document.getElementById("tag-filter").addEventListener("change", fetchRecipes);
+document.getElementById("tag-category").addEventListener("change", fetchRecipes);
+document.getElementById("tag-value").addEventListener("input", () => {
+  currentPage = 1;
+  setTimeout(fetchRecipes, 300);
+});
 document.getElementById("max-time").addEventListener("input", fetchRecipes);
 
-// 🔐 Admin Login
 document.getElementById("login-form").onsubmit = async e => {
   e.preventDefault();
   const fd = new FormData(e.target);
@@ -321,12 +354,67 @@ document.getElementById("login-form").onsubmit = async e => {
   }
 };
 
-// Back to top
 const backBtn = document.createElement("button");
 backBtn.className = "icon-button";
 backBtn.innerText = "⬆ Back to Top";
 backBtn.onclick = () => window.scrollTo({ top: 0, behavior: "smooth" });
 document.body.appendChild(backBtn);
+
+function addTagFilterRow(cat = "", val = "") {
+  const existing = [...document.querySelectorAll(".filter-tag-row")]
+    .some(row => row.querySelector("select").value === cat && row.querySelector("input").value === val);
+
+  if (existing) return;
+
+  const container = document.getElementById("tag-filter-container");
+  const row = document.createElement("div");
+  row.className = "filter-tag-row";
+  row.innerHTML = `
+    <select>
+      <option value="">Choose Tag Category</option>
+      <option>Cooking time</option>
+      <option>Ingredients</option>
+      <option>Calories</option>
+      <option>Diet type</option>
+      <option>Health & safety</option>
+      <option>Meal type</option>
+      <option>Dish type</option>
+      <option>Cuisine type</option>
+    </select>
+    <input type="text" placeholder="Value" />
+    <button type="button" onclick="this.parentElement.remove()">✕</button>
+  `;
+  row.querySelector("select").value = cat;
+  row.querySelector("input").value = val;
+  container.appendChild(row);
+}
+
+function clearAllFilters() {
+  document.getElementById("tag-filter-container").innerHTML = "";
+  addTagFilterRow(); // add one blank input
+  fetchRecipes();    // refresh with no filters
+}
+
+
+function onTagClick(el) {
+  const cat = el.dataset.cat;
+  const val = el.dataset.val;
+
+  const rows = [...document.querySelectorAll(".filter-tag-row")];
+  const existing = rows.find(row =>
+    row.querySelector("select").value === cat &&
+    row.querySelector("input").value.toLowerCase() === val.toLowerCase()
+  );
+
+  if (existing) {
+    existing.remove();
+  } else {
+    addTagFilterRow(cat, val);
+  }
+
+  fetchRecipes();
+}
+
 
 window.onload = () => {
   token = localStorage.getItem("token") || "";
@@ -334,11 +422,11 @@ window.onload = () => {
     document.getElementById("admin-panel").style.display = "block";
     loadCategories();
   } else {
-    document.getElementById("admin-panel").style.display = "none"; // ⬅️ critical!
+    document.getElementById("admin-panel").style.display = "none";
   }
 
+  addTagFilterRow(); // add one filter input at start
   fetchRecipes();
   addIngredient();
   addStep();
 };
-
